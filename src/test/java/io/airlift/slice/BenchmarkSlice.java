@@ -28,17 +28,15 @@ import org.openjdk.jmh.annotations.Warmup;
 import org.openjdk.jmh.runner.Runner;
 import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
-import org.openjdk.jmh.runner.options.VerboseMode;
 
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
-@SuppressWarnings("MethodMayBeStatic")
 @OutputTimeUnit(TimeUnit.NANOSECONDS)
 @BenchmarkMode(Mode.AverageTime)
-@Fork(5)
-@Warmup(iterations = 5, time = 1000, timeUnit = TimeUnit.MILLISECONDS)
-@Measurement(iterations = 10, time = 1000, timeUnit = TimeUnit.MILLISECONDS)
+@Fork(1)
+@Warmup(iterations = 4, time = 1000, timeUnit = TimeUnit.MILLISECONDS)
+@Measurement(iterations = 8, time = 1000, timeUnit = TimeUnit.MILLISECONDS)
 public class BenchmarkSlice
 {
     @Benchmark
@@ -52,7 +50,14 @@ public class BenchmarkSlice
     public Object equalsUnchecked(BenchmarkData data)
             throws Throwable
     {
-        return data.slice1.equalsUnchecked(0, data.slice2, 0, data.slice1.length());
+        return data.slice1.equalsUnchecked(data.offset, data.slice2, data.offset, data.slice1.length() - data.offset);
+    }
+
+    @Benchmark
+    public Object equalsUncheckedVectorized(BenchmarkData data)
+            throws Throwable
+    {
+        return data.slice1.equalsUncheckedVectorized(data.offset, data.slice2, data.offset, data.slice1.length() - data.offset);
     }
 
     @Benchmark
@@ -65,8 +70,11 @@ public class BenchmarkSlice
     @State(Scope.Thread)
     public static class BenchmarkData
     {
-        @Param({"1", "7", "8", "16", "32", "64", "127", "32779"})
+        @Param({"1", "7", "8", "16", "31", "32", "49", "64", "127", "128", "256", "512"})
         private int size = 1;
+
+        @Param({"0", "1", "13"})
+        private int offset;
 
         private Slice slice1;
         private Slice slice2;
@@ -89,14 +97,9 @@ public class BenchmarkSlice
     public static void main(String[] args)
             throws Throwable
     {
-        // assure the benchmarks are valid before running
-        BenchmarkData data = new BenchmarkData();
-        data.setup();
-        new BenchmarkSlice().equalsObject(data);
-
         Options options = new OptionsBuilder()
-                .verbosity(VerboseMode.NORMAL)
-                .include(".*" + BenchmarkSlice.class.getSimpleName() + ".*")
+                .include("equalsUnchecked")
+                .include("equalsUncheckedVectorized")
                 .build();
         new Runner(options).run();
     }

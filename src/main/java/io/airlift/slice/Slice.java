@@ -23,6 +23,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
+import java.util.Arrays;
 
 import static io.airlift.slice.JvmUtils.bufferAddress;
 import static io.airlift.slice.JvmUtils.unsafe;
@@ -1152,6 +1153,22 @@ public final class Slice
         }
 
         return true;
+    }
+
+    boolean equalsUncheckedVectorized(int offset, Slice that, int otherOffset, int length)
+    {
+        if (length > 127) {
+            return equalsUncheckedVec(offset + (int) address - ARRAY_BYTE_BASE_OFFSET, that, otherOffset + (int) that.address - ARRAY_BYTE_BASE_OFFSET, length);
+        } else {
+            return equalsUnchecked(offset, that, otherOffset, length);
+        }
+    }
+
+    private boolean equalsUncheckedVec(int offset, Slice that, int otherOffset, int length)
+    {
+        byte[] array = (byte[]) base;
+        byte[] otherArray = (byte[]) that.base;
+        return Arrays.mismatch(array, offset, offset + length, otherArray, otherOffset, otherOffset + length) == -1;
     }
 
     /**
